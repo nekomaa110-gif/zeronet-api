@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exceptions\UserAlreadyExistsException;
+use App\Exceptions\UserNotFoundException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CreateUserRequest;
 use App\Services\RadiusService;
@@ -51,12 +53,10 @@ class UserController extends Controller
                 'attribute' => $user->attribute,
             ], 'User berhasil dibuat.', 201);
 
+        } catch (UserAlreadyExistsException $e) {
+            return $this->errorResponse($e->getMessage(), null, 409);
         } catch (Exception $e) {
             Log::error('UserController@store: '.$e->getMessage());
-
-            if (str_contains($e->getMessage(), 'sudah ada')) {
-                return $this->errorResponse($e->getMessage(), null, 409);
-            }
 
             return $this->errorResponse('Gagal membuat user.', null, 500);
         }
@@ -69,12 +69,10 @@ class UserController extends Controller
 
             return $this->successResponse(null, "User '{$username}' berhasil dihapus.");
 
+        } catch (UserNotFoundException $e) {
+            return $this->errorResponse($e->getMessage(), null, 404);
         } catch (Exception $e) {
             Log::error('UserController@destroy: '.$e->getMessage());
-
-            if (str_contains($e->getMessage(), 'tidak ditemukan')) {
-                return $this->errorResponse($e->getMessage(), null, 404);
-            }
 
             return $this->errorResponse('Gagal menghapus user.', null, 500);
         }

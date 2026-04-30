@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exceptions\MikrotikConnectionException;
+use App\Exceptions\UserNotFoundException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\DisconnectUserRequest;
 use App\Services\MikrotikService;
@@ -30,14 +32,14 @@ class MikrotikController extends Controller
                 'users' => $users,
             ], 'Data user aktif Mikrotik berhasil diambil.');
 
+        } catch (MikrotikConnectionException $e) {
+            Log::error('MikrotikController@activeUsers: '.$e->getMessage());
+
+            return $this->errorResponse($e->getMessage(), null, 503);
         } catch (Exception $e) {
             Log::error('MikrotikController@activeUsers: '.$e->getMessage());
 
-            return $this->errorResponse(
-                'Gagal terhubung ke Mikrotik: '.$e->getMessage(),
-                null,
-                503
-            );
+            return $this->errorResponse('Gagal mengambil data Mikrotik.', null, 500);
         }
     }
 
@@ -54,18 +56,16 @@ class MikrotikController extends Controller
                 "User '{$username}' berhasil di-disconnect dari Mikrotik."
             );
 
+        } catch (UserNotFoundException $e) {
+            return $this->errorResponse($e->getMessage(), null, 404);
+        } catch (MikrotikConnectionException $e) {
+            Log::error("MikrotikController@disconnect [{$username}]: ".$e->getMessage());
+
+            return $this->errorResponse($e->getMessage(), null, 503);
         } catch (Exception $e) {
             Log::error("MikrotikController@disconnect [{$username}]: ".$e->getMessage());
 
-            if (str_contains($e->getMessage(), 'tidak ditemukan')) {
-                return $this->errorResponse($e->getMessage(), null, 404);
-            }
-
-            return $this->errorResponse(
-                'Gagal disconnect user: '.$e->getMessage(),
-                null,
-                503
-            );
+            return $this->errorResponse('Gagal disconnect user.', null, 500);
         }
     }
 
@@ -80,13 +80,10 @@ class MikrotikController extends Controller
                 'status' => 'connected',
             ], 'Koneksi Mikrotik berhasil.');
 
-        } catch (Exception $e) {
+        } catch (MikrotikConnectionException|Exception $e) {
             return $this->errorResponse(
                 'Koneksi Mikrotik gagal: '.$e->getMessage(),
-                [
-                    'host' => config('mikrotik.host'),
-                    'port' => config('mikrotik.port'),
-                ],
+                ['host' => config('mikrotik.host'), 'port' => config('mikrotik.port')],
                 503
             );
         }

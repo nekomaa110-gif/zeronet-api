@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Exceptions\MikrotikConnectionException;
+use App\Traits\FormatBytes;
 use Exception;
 use Illuminate\Support\Facades\Log;
 use RouterOS\Client;
@@ -9,6 +11,8 @@ use RouterOS\Query;
 
 class MikrotikService
 {
+    use FormatBytes;
+
     private ?Client $client = null;
 
     private array $config;
@@ -48,7 +52,7 @@ class MikrotikService
                 'port' => $this->config['port'],
             ]);
 
-            throw new Exception(
+            throw new MikrotikConnectionException(
                 'Tidak dapat terhubung ke Mikrotik: '.$e->getMessage()
             );
         }
@@ -178,23 +182,6 @@ class MikrotikService
         Log::info('Mikrotik: Koneksi ditutup');
     }
 
-    /**
-     * Format bytes ke human readable
-     */
-    private function formatBytes(int $bytes, int $precision = 2): string
-    {
-        $units = ['B', 'KB', 'MB', 'GB', 'TB'];
-
-        for ($i = 0; $bytes > 1024 && $i < count($units) - 1; $i++) {
-            $bytes /= 1024;
-        }
-
-        return round($bytes, $precision).' '.$units[$i];
-    }
-
-    /**
-     * Destructor - pastikan koneksi ditutup
-     */
     public function __destruct()
     {
         $this->disconnect();

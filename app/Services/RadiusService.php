@@ -2,9 +2,10 @@
 
 namespace App\Services;
 
+use App\Exceptions\UserAlreadyExistsException;
+use App\Exceptions\UserNotFoundException;
 use App\Models\RadAcct;
 use App\Models\RadCheck;
-use Exception;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -42,9 +43,8 @@ class RadiusService
      */
     public function createUser(string $username, string $password): RadCheck
     {
-        // Cek duplikasi
         if ($this->userExists($username)) {
-            throw new Exception("User '{$username}' sudah ada.");
+            throw new UserAlreadyExistsException($username);
         }
 
         return DB::connection('radius')->transaction(function () use ($username, $password) {
@@ -55,6 +55,7 @@ class RadiusService
                 'value' => $password,
             ]);
 
+            cache()->forget('dashboard_stats');
             Log::info("User RADIUS dibuat: {$username}");
 
             return $user;
@@ -67,19 +68,18 @@ class RadiusService
     public function deleteUser(string $username): bool
     {
         if (! $this->userExists($username)) {
-            throw new Exception("User '{$username}' tidak ditemukan.");
+            throw new UserNotFoundException($username);
         }
 
         DB::connection('radius')->transaction(function () use ($username) {
-            // Hapus dari radcheck
             RadCheck::where('username', $username)->delete();
 
-            // Optional: Hapus juga dari radreply dan radusergroup jika ada
             DB::connection('radius')
                 ->table('radreply')
                 ->where('username', $username)
                 ->delete();
 
+            cache()->forget('dashboard_stats');
             Log::info("User RADIUS dihapus: {$username}");
         });
 
